@@ -41,8 +41,8 @@ type Estate struct {
 	Cost       int      `json:"cost"`                 // Стоимость
 	Text       string   `json:"text"`                 // Описание
 	Images     []string `json:"images"`               // Ссылки на фото
-	Lat        string   `json:"lat"`                  // Широта
-	Lng        string   `json:"lng"`                  // Долгота
+	Lat        float64  `json:"lat"`                  // Широта
+	Lng        float64  `json:"lng"`                  // Долгота
 	Name       string   `json:"name"`                 // Имя продавца
 	Phones     []int64  `json:"phones"`               // Телефоны
 	URL        string   `json:"url"`                  // Ссылка на источник
