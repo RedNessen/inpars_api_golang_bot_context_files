@@ -28,6 +28,8 @@ type Config struct {
 	// Лимиты
 	MinCost         int
 	MaxCost         int
+	FloorMin        int // Минимальный этаж
+	FloorMax        int // Максимальный этаж
 }
 
 // LoadFromEnv загружает конфигурацию из переменных окружения
@@ -43,6 +45,8 @@ func LoadFromEnv() (*Config, error) {
 		SellerTypes:     getEnvAsIntSlice("SELLER_TYPES", []int{1, 2, 3}), // Все типы
 		MinCost:         getEnvAsInt("MIN_COST", 0),
 		MaxCost:         getEnvAsInt("MAX_COST", 0),
+		FloorMin:        getEnvAsInt("FLOOR_MIN", 0),
+		FloorMax:        getEnvAsInt("FLOOR_MAX", 0),
 	}
 
 	// Валидация обязательных полей
