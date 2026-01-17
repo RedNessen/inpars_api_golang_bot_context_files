@@ -186,6 +186,14 @@ func (m *Monitor) buildParams() *inpars.EstateListParams {
 		params.CostMax = m.config.MaxCost
 	}
 
+	// Фильтры по этажам
+	if m.config.FloorMin > 0 {
+		params.FloorMin = m.config.FloorMin
+	}
+	if m.config.FloorMax > 0 {
+		params.FloorMax = m.config.FloorMax
+	}
+
 	return params
 }
 
