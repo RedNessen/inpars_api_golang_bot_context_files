@@ -73,7 +73,7 @@ make build
 ./bin/inpars-telegram-bot
 ```
 
-#### Вариант 3: Запуск через Docker Compose (рекомендуется)
+#### Вариант 3: Запуск через Docker Compose (локальная сборка)
 
 ```bash
 docker-compose up -d
@@ -84,6 +84,27 @@ docker-compose up -d
 ```bash
 docker-compose logs -f
 ```
+
+#### Вариант 4: Использование готового образа из GHCR (для продакшена)
+
+Образ автоматически публикуется в GitHub Container Registry.
+
+```bash
+# Скачать образ
+docker pull ghcr.io/rednessen/inpars_api_golang_bot_context_files:latest
+
+# Запустить с переменными окружения
+docker run -d \
+  --name inpars-bot \
+  -e TELEGRAM_BOT_TOKEN=your_token \
+  -e DEFAULT_REGIONS=39 \
+  -e MIN_COST=25000 \
+  -e MAX_COST=50000 \
+  -e FLOOR_MIN=3 \
+  ghcr.io/rednessen/inpars_api_golang_bot_context_files:latest
+```
+
+**Для использования в отдельном репозитории инфраструктуры** см. [DOCKER.md](DOCKER.md)
 
 ## Использование
 
