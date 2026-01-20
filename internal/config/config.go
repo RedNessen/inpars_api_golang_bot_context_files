@@ -30,6 +30,11 @@ type Config struct {
 	MaxCost         int
 	FloorMin        int // Минимальный этаж
 	FloorMax        int // Максимальный этаж
+
+	// Database
+	DatabaseURL     string // PostgreSQL connection string
+	CleanupDays     int    // Удалять объявления старше N дней
+	CleanupInterval int    // Интервал очистки в часах
 }
 
 // LoadFromEnv загружает конфигурацию из переменных окружения
@@ -47,6 +52,9 @@ func LoadFromEnv() (*Config, error) {
 		MaxCost:         getEnvAsInt("MAX_COST", 0),
 		FloorMin:        getEnvAsInt("FLOOR_MIN", 0),
 		FloorMax:        getEnvAsInt("FLOOR_MAX", 0),
+		DatabaseURL:     os.Getenv("DATABASE_URL"),
+		CleanupDays:     getEnvAsInt("CLEANUP_DAYS", 14),
+		CleanupInterval: getEnvAsInt("CLEANUP_INTERVAL", 24),
 	}
 
 	// Валидация обязательных полей
@@ -56,6 +64,10 @@ func LoadFromEnv() (*Config, error) {
 
 	if cfg.InParsToken == "" {
 		return nil, fmt.Errorf("INPARS_API_TOKEN is required")
+	}
+
+	if cfg.DatabaseURL == "" {
+		return nil, fmt.Errorf("DATABASE_URL is required")
 	}
 
 	return cfg, nil
