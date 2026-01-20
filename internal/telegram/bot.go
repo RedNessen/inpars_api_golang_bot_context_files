@@ -7,6 +7,7 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/RedNessen/inpars-telegram-bot/internal/inpars"
+	"github.com/RedNessen/inpars-telegram-bot/internal/storage"
 )
 
 // Bot представляет Telegram бота
@@ -120,6 +121,117 @@ func (b *Bot) SendEstate(estate *inpars.Estate) error {
 	}
 
 	return nil
+}
+
+// SendNewEstate отправляет уведомление о новом объявлении
+func (b *Bot) SendNewEstate(estate *inpars.Estate) error {
+	var sb strings.Builder
+
+	// Заголовок "НОВОЕ ОБЪЯВЛЕНИЕ"
+	sb.WriteString("🆕 <b>НОВОЕ ОБЪЯВЛЕНИЕ</b>\n\n")
+
+	// Добавляем основную информацию
+	sb.WriteString(b.formatEstateMessage(estate))
+
+	return b.sendToAllChats(sb.String())
+}
+
+// SendUpdatedEstate отправляет уведомление об обновлении объявления
+func (b *Bot) SendUpdatedEstate(estate *inpars.Estate, changes []storage.Change) error {
+	var sb strings.Builder
+
+	// Заголовок "ОБНОВЛЕНО"
+	sb.WriteString("🔄 <b>ОБНОВЛЕНО</b>\n\n")
+
+	// Краткая информация об объявлении
+	sb.WriteString(fmt.Sprintf("<b>🏠 %s</b>\n", estate.Title))
+	sb.WriteString(fmt.Sprintf("💰 <b>%s</b>", estate.FormatCost()))
+	if estate.TypeAd == 1 {
+		sb.WriteString(" / месяц")
+	}
+	sb.WriteString("\n")
+
+	if estate.Address != "" {
+		sb.WriteString(fmt.Sprintf("📍 %s\n", estate.Address))
+	}
+
+	// Показываем что изменилось
+	sb.WriteString("\n<b>⚡️ Изменения:</b>\n")
+	sb.WriteString(b.formatChangesMessage(changes))
+
+	// Ссылка на объявление
+	if estate.URL != "" {
+		sb.WriteString(fmt.Sprintf("\n🔗 <a href=\"%s\">Посмотреть объявление</a>\n", estate.URL))
+	}
+
+	sb.WriteString(fmt.Sprintf("\n📌 Источник: %s", estate.Source))
+
+	return b.sendToAllChats(sb.String())
+}
+
+// sendToAllChats отправляет сообщение всем активным чатам
+func (b *Bot) sendToAllChats(message string) error {
+	for chatID := range b.chatIDs {
+		msg := tgbotapi.NewMessage(chatID, message)
+		msg.ParseMode = "HTML"
+		msg.DisableWebPagePreview = false
+
+		_, err := b.api.Send(msg)
+		if err != nil {
+			log.Printf("Failed to send message to %d: %v", chatID, err)
+			// Если пользователь заблокировал бота, удаляем его из списка
+			if strings.Contains(err.Error(), "blocked") || strings.Contains(err.Error(), "forbidden") {
+				delete(b.chatIDs, chatID)
+			}
+			continue
+		}
+	}
+	return nil
+}
+
+// formatChangesMessage форматирует список изменений для отображения
+func (b *Bot) formatChangesMessage(changes []storage.Change) string {
+	var sb strings.Builder
+
+	for _, change := range changes {
+		switch change.Field {
+		case storage.ChangeTypeCost:
+			sb.WriteString(fmt.Sprintf("💰 Цена: %s ₽ → <b>%s ₽</b>", change.OldValue, change.NewValue))
+
+			// Вычисляем разницу
+			oldVal, newVal := parseInt(change.OldValue), parseInt(change.NewValue)
+			if oldVal > 0 && newVal > 0 {
+				diff := newVal - oldVal
+				if diff > 0 {
+					sb.WriteString(fmt.Sprintf(" (+%s ₽)", formatInt(diff)))
+				} else if diff < 0 {
+					sb.WriteString(fmt.Sprintf(" (%s ₽)", formatInt(diff)))
+				}
+			}
+			sb.WriteString("\n")
+
+		case storage.ChangeTypeFloor:
+			sb.WriteString(fmt.Sprintf("🏢 Этаж: %s → <b>%s</b>\n", change.OldValue, change.NewValue))
+
+		case storage.ChangeTypeImageCount:
+			oldCount, newCount := parseInt(change.OldValue), parseInt(change.NewValue)
+			sb.WriteString(fmt.Sprintf("📸 Фото: %s → <b>%s</b>", change.OldValue, change.NewValue))
+			if oldCount > 0 && newCount > 0 {
+				diff := newCount - oldCount
+				if diff > 0 {
+					sb.WriteString(fmt.Sprintf(" (+%d)", diff))
+				} else if diff < 0 {
+					sb.WriteString(fmt.Sprintf(" (%d)", diff))
+				}
+			}
+			sb.WriteString("\n")
+
+		case storage.ChangeTypeSq:
+			sb.WriteString(fmt.Sprintf("📐 Площадь: %s → <b>%s</b> м²\n", change.OldValue, change.NewValue))
+		}
+	}
+
+	return sb.String()
 }
 
 // formatEstateMessage форматирует информацию об объявлении для Telegram
@@ -250,4 +362,49 @@ func (b *Bot) GetActiveChatIDs() []int64 {
 // HasActiveChats проверяет, есть ли активные чаты
 func (b *Bot) HasActiveChats() bool {
 	return len(b.chatIDs) > 0
+}
+
+// parseInt парсит строку в int
+func parseInt(s string) int {
+	if s == "" {
+		return 0
+	}
+	result := 0
+	negative := false
+	for i, ch := range s {
+		if i == 0 && ch == '-' {
+			negative = true
+			continue
+		}
+		if ch >= '0' && ch <= '9' {
+			result = result*10 + int(ch-'0')
+		}
+	}
+	if negative {
+		return -result
+	}
+	return result
+}
+
+// formatInt форматирует int в строку с пробелами
+func formatInt(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	negative := n < 0
+	if negative {
+		n = -n
+	}
+	str := ""
+	for i := 0; n > 0; i++ {
+		if i > 0 && i%3 == 0 {
+			str = " " + str
+		}
+		str = string(rune('0'+(n%10))) + str
+		n /= 10
+	}
+	if negative {
+		str = "-" + str
+	}
+	return str
 }

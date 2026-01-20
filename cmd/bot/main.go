@@ -9,6 +9,7 @@ import (
 	"github.com/RedNessen/inpars-telegram-bot/internal/config"
 	"github.com/RedNessen/inpars-telegram-bot/internal/inpars"
 	"github.com/RedNessen/inpars-telegram-bot/internal/monitor"
+	"github.com/RedNessen/inpars-telegram-bot/internal/storage"
 	"github.com/RedNessen/inpars-telegram-bot/internal/telegram"
 )
 
@@ -23,6 +24,14 @@ func main() {
 
 	log.Println("Configuration loaded successfully")
 
+	// Подключение к базе данных
+	store, err := storage.NewPostgresStorage(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer store.Close()
+	log.Println("Database connection established")
+
 	// Создание клиента InPars API
 	inparsClient := inpars.NewClient(cfg.InParsToken)
 	log.Println("InPars API client initialized")
@@ -34,8 +43,8 @@ func main() {
 	}
 	log.Println("Telegram bot initialized")
 
-	// Создание монитора
-	mon := monitor.NewMonitor(inparsClient, bot, cfg)
+	// Создание монитора с хранилищем
+	mon := monitor.NewMonitor(inparsClient, bot, store, cfg)
 	log.Println("Monitor initialized")
 
 	// Запуск бота в отдельной горутине
@@ -61,5 +70,11 @@ func main() {
 
 	log.Println("Shutting down...")
 	log.Println(mon.GetStatus())
+
+	// Закрываем соединение с БД
+	if err := store.Close(); err != nil {
+		log.Printf("Error closing database: %v", err)
+	}
+
 	log.Println("Goodbye!")
 }
